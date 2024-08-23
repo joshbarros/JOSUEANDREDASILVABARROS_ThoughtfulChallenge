@@ -58,32 +58,18 @@ class NewsScraper:
         if self.category:
             logging.info("Filtering news by category: %s", self.category)
             try:
-                # Wait for the navbar to be visible
-                WebDriverWait(self.browser.driver, 10).until(
-                    EC.visibility_of_element_located((By.CSS_SELECTOR, "ul._yb_c8hmf2"))
-                )
-                
-                # Find all the list items in the navbar
-                categories = self.browser.get_webelements("css:ul._yb_c8hmf2 li")
-                
-                # Iterate over each category and check the text
-                for category in categories:
-                    span_element = category.find_element(By.CSS_SELECTOR, "span._yb_5tqys3")
-                    if span_element.text.strip().lower() == self.category.lower():
-                        logging.info(f"Found category '{self.category}', clicking it now.")
-                        self.browser.click_element(span_element)
-                        
-                        # Wait for the page to reload with the filtered category
-                        WebDriverWait(self.browser.driver, 10).until(
-                            EC.presence_of_element_located((By.CSS_SELECTOR, "h3"))
-                        )
-                        return
-                raise ValueError(f"Category '{self.category}' not found.")
+                # Find and click the category using Robocorp's click_element method
+                category_selector = f"//span[text()='{self.category}']/parent::a"
+                self.browser.click_element(f"xpath:{category_selector}")
+
+                # Wait for the page to reload with the filtered category
+                self.browser.wait_until_page_contains_element("css:h3", timeout=10)
+                logging.info(f"Successfully clicked on category: {self.category}")
             except Exception as e:
                 logging.error(f"Error during category selection: {e}")
                 screenshot_path = os.path.join(self.output_dir, 'error_screenshot.png')
                 self.browser.capture_page_screenshot(screenshot_path)
-                raise
+                raise ValueError(f"Category '{self.category}' not found or could not be clicked.")
     
     def scroll_and_load(self):
         logging.info("Scrolling and loading news articles...")
