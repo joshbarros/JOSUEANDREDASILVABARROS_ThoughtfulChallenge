@@ -1,0 +1,6 @@
+tasks:
+  Default:
+    description: Run the main bot process
+    shell: python src/main.py
+
+artifactsDir: output
