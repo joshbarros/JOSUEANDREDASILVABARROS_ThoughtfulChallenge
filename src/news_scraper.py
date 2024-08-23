@@ -22,6 +22,9 @@ class NewsScraper:
         self.category = category
         self.months = months
         self.headless = headless
+        
+        # Use a single timestamp for the entire session to avoid multiple directories
+        self.timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         self.output_dir = self.create_output_directory()
         self.images_dir = os.path.join(self.output_dir, "images")
         os.makedirs(self.images_dir, exist_ok=True)
@@ -29,12 +32,13 @@ class NewsScraper:
                      site_url, search_phrase, category, months)
         
     def create_output_directory(self):
-        # Create a unique folder based on the category and current UTC timestamp
         category_prefix = self.category.upper().replace(" ", "_")
-        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-        output_dir = os.path.join("output", f"{category_prefix}_{timestamp}")
-        os.makedirs(output_dir, exist_ok=True)
-        logging.info("Created output directory: %s", output_dir)
+        output_dir = os.path.join("output", f"{category_prefix}_{self.timestamp}")
+        
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+            logging.info("Created output directory: %s", output_dir)
+        
         return output_dir
         
     def open_site(self):
@@ -53,42 +57,28 @@ class NewsScraper:
     def filter_news_by_category(self):
         if self.category:
             logging.info("Filtering news by category: %s", self.category)
-            category_locator = f"//span[text()='{self.category}']"  # Removed "xpath:" prefix
-            
-            retry_attempts = 3
-            for attempt in range(retry_attempts):
-                try:
-                    logging.info(f"Attempt {attempt + 1} to locate category element.")
-                    WebDriverWait(self.browser.driver, 30).until(
-                        EC.visibility_of_element_located((By.XPATH, category_locator))
-                    )
-
-                    if self.browser.is_element_visible(category_locator):
-                        self.browser.click_element(category_locator)
-
+            try:
+                # Find all the list items in the navbar
+                categories = self.browser.get_webelements("css:ul._yb_c8hmf2 li")
+                
+                # Iterate over each category and check the text
+                for category in categories:
+                    span_element = category.find_element(By.CSS_SELECTOR, "span._yb_5tqys3")
+                    if span_element.text.strip().lower() == self.category.lower():
+                        logging.info(f"Found category '{self.category}', clicking it now.")
+                        span_element.click()
+                        
                         # Wait for the page to reload with the filtered category
-                        WebDriverWait(self.browser.driver, 30).until(
+                        WebDriverWait(self.browser.driver, 10).until(
                             EC.presence_of_element_located((By.CSS_SELECTOR, "h3"))
                         )
-                        logging.info("Category filtered successfully.")
-                        return  # Exit the method after successful category selection
-                    else:
-                        logging.warning(f"Category '{self.category}' not visible, retrying...")
-                except Exception as e:
-                    logging.error(f"Error on attempt {attempt + 1}: {e}")
-                    if attempt == retry_attempts - 1:
-                        logging.error("Max retry attempts reached. Taking a screenshot for debugging.")
-                        screenshot_path = os.path.join(self.output_dir, f'error_screenshot_attempt_{attempt + 1}.png')
-                        self.browser.capture_page_screenshot(screenshot_path)
-                        raise ValueError(f"Category '{self.category}' not found on the site after {retry_attempts} attempts.")
-            raise ValueError(f"Failed to locate category '{self.category}' after {retry_attempts} attempts.")
-    
-    # Yahoo open searchs on new tabs, unused for now.
-    # def search_news(self):
-    #    logging.info("Searching for news with phrase: %s", self.search_phrase)
-    #    search_box = self.browser.get_webelement(locator="id:ybar-sbq")
-    #    self.browser.input_text(search_box, self.search_phrase)
-    #    self.browser.press_keys(search_box, "ENTER")
+                        return
+                raise ValueError(f"Category '{self.category}' not found.")
+            except Exception as e:
+                logging.error(f"Error during category selection: {e}")
+                screenshot_path = os.path.join(self.output_dir, 'error_screenshot.png')
+                self.browser.capture_page_screenshot(screenshot_path)
+                raise
     
     def scroll_and_load(self):
         logging.info("Scrolling and loading news articles...")
@@ -169,10 +159,9 @@ class NewsScraper:
             return "placeholder.png"
 
         try:
-            timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
             title_sanitized = re.sub(r'\W+', '', title[:15])
             category_prefix = self.category.upper().replace(" ", "_")
-            image_filename = f"{category_prefix}_{title_sanitized}_{timestamp}.jpg"
+            image_filename = f"{category_prefix}_{title_sanitized}_{self.timestamp}.jpg"
             image_path = os.path.join(self.images_dir, image_filename)
 
             urllib.request.urlretrieve(image_url, image_path)
@@ -184,18 +173,15 @@ class NewsScraper:
             return "placeholder.png"
     
     def save_to_excel(self, news_data):
-        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         category_prefix = self.category.upper().replace(" ", "_")
-        file_name = os.path.join(self.output_dir, f"{category_prefix}_news_data_{timestamp}.xlsx")
+        file_name = os.path.join(self.output_dir, f"{category_prefix}_news_data_{self.timestamp}.xlsx")
         df = pd.DataFrame(news_data)
         df.to_excel(file_name, index=False)
         logging.info("Data saved to %s", file_name)
         self.save_scrape_log(news_data, file_name)
     
     def save_scrape_log(self, news_data, file_name):
-        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-        category_prefix = self.category.upper().replace(" ", "_")
-        log_filename = os.path.join(self.output_dir, f"{category_prefix}_scrape_log_{timestamp}.txt")
+        log_filename = os.path.join(self.output_dir, f"{self.category.upper().replace(' ', '_')}_scrape_log_{self.timestamp}.txt")
         try:
             with open(log_filename, 'w') as log_file:
                 log_file.write(f"Scraping Report - {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}\n\n")
