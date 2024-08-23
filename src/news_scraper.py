@@ -39,7 +39,13 @@ class NewsScraper:
         
     def open_site(self):
         options = {
-            "arguments": ["--headless"] if self.headless else []
+            "arguments": [
+                "--headless", 
+                "--disable-gpu", 
+                "--window-size=1920,1080", 
+                "--no-sandbox",
+                "--disable-dev-shm-usage"
+            ] if self.headless else []
         }
         logging.info("Opening site: %s with headless mode: %s", self.site_url, self.headless)
         self.browser.open_available_browser(self.site_url, options=options)
