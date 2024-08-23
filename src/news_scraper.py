@@ -58,6 +58,11 @@ class NewsScraper:
         if self.category:
             logging.info("Filtering news by category: %s", self.category)
             try:
+                # Wait for the navbar to be visible
+                WebDriverWait(self.browser.driver, 10).until(
+                    EC.visibility_of_element_located((By.CSS_SELECTOR, "ul._yb_c8hmf2"))
+                )
+                
                 # Find all the list items in the navbar
                 categories = self.browser.get_webelements("css:ul._yb_c8hmf2 li")
                 
@@ -66,7 +71,7 @@ class NewsScraper:
                     span_element = category.find_element(By.CSS_SELECTOR, "span._yb_5tqys3")
                     if span_element.text.strip().lower() == self.category.lower():
                         logging.info(f"Found category '{self.category}', clicking it now.")
-                        span_element.click()
+                        self.browser.click_element(span_element)
                         
                         # Wait for the page to reload with the filtered category
                         WebDriverWait(self.browser.driver, 10).until(
