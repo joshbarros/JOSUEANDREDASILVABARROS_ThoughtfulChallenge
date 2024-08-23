@@ -53,19 +53,35 @@ class NewsScraper:
     def filter_news_by_category(self):
         if self.category:
             logging.info("Filtering news by category: %s", self.category)
-            category_locator = f"xpath://span[text()='{self.category}']"
+            category_locator = f"//span[text()='{self.category}']"  # Removed "xpath:" prefix
             
-            # Check if the category exists on the page
-            if self.browser.is_element_visible(category_locator):
-                self.browser.click_element(category_locator)
-                
-                # Wait for the page to reload with the filtered category
-                WebDriverWait(self.browser.driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "h3"))
-                )
-            else:
-                logging.error("Category '%s' not found on the site. Please check the category name.", self.category)
-                raise ValueError(f"Category '{self.category}' not found.")
+            retry_attempts = 3
+            for attempt in range(retry_attempts):
+                try:
+                    logging.info(f"Attempt {attempt + 1} to locate category element.")
+                    WebDriverWait(self.browser.driver, 30).until(
+                        EC.visibility_of_element_located((By.XPATH, category_locator))
+                    )
+
+                    if self.browser.is_element_visible(category_locator):
+                        self.browser.click_element(category_locator)
+
+                        # Wait for the page to reload with the filtered category
+                        WebDriverWait(self.browser.driver, 30).until(
+                            EC.presence_of_element_located((By.CSS_SELECTOR, "h3"))
+                        )
+                        logging.info("Category filtered successfully.")
+                        return  # Exit the method after successful category selection
+                    else:
+                        logging.warning(f"Category '{self.category}' not visible, retrying...")
+                except Exception as e:
+                    logging.error(f"Error on attempt {attempt + 1}: {e}")
+                    if attempt == retry_attempts - 1:
+                        logging.error("Max retry attempts reached. Taking a screenshot for debugging.")
+                        screenshot_path = os.path.join(self.output_dir, f'error_screenshot_attempt_{attempt + 1}.png')
+                        self.browser.capture_page_screenshot(screenshot_path)
+                        raise ValueError(f"Category '{self.category}' not found on the site after {retry_attempts} attempts.")
+            raise ValueError(f"Failed to locate category '{self.category}' after {retry_attempts} attempts.")
     
     # Yahoo open searchs on new tabs, unused for now.
     # def search_news(self):
