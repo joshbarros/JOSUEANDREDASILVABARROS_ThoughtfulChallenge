@@ -4,7 +4,7 @@ dependencies:
   - python=3.10
   - pip>=22.0
   - pip:
-    - rpaframework==28.6.2
+    - rpaframework
     - pandas
     - selenium
     - urllib3

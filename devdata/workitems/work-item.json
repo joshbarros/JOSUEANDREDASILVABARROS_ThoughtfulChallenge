@@ -3,5 +3,5 @@
     "search_phrase": "Biden",
     "category": "World",
     "months": 1,
-    "headless": false
+    "headless": true
 }

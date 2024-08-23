@@ -4,3 +4,5 @@ venv/*
 .DS_Store
 src/.DS_Store
 src/__pycache__
+
+.vscode/*
