@@ -1,7 +1,6 @@
 tasks:
   Default:
     description: Run the main bot process
-    shell: |
-      pip install -r requirements.txt
-      python src/main.py
+    shell: python src/main.py
 artifactsDir: output
+condaConfigFile: conda.yaml
